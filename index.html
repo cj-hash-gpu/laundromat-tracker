@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laundromat Pipeline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f2; --surface: #ffffff; --border: #e0e0da;
+    --accent: #2c6e2c; --accent-light: #e8f4e8;
+    --text: #1a1a1a; --muted: #888; --muted-light: #bbb;
+    --danger: #c0392b; --warn: #d68910; --good: #27ae60;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding: 28px; }
+
+  header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 28px; border-bottom: 2px solid var(--border); padding-bottom: 18px; }
+  header h1 { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--accent); }
+  header span { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-left: auto; }
+
+  .summary-row { display: flex; gap: 32px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat-val { font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--text); }
+  .stat-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+  .btn { font-family: var(--mono); font-size: 12px; padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.15s; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 500; }
+  .btn-primary:hover { background: #245924; color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .btn-danger { color: var(--danger); border-color: #f0d0ce; }
+  .btn-danger:hover { background: #fdf0ef; }
+
+  .add-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; display: none; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .add-panel.visible { display: block; }
+  .add-panel h3 { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .field input, .field textarea, .field select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 10px; font-family: var(--sans); font-size: 13px; color: var(--text); outline: none;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); background: #fff; }
+  .field textarea { resize: vertical; min-height: 60px; }
+
+  .scan-bar { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .scan-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-light); flex-shrink: 0; }
+  .scan-dot.scanning { background: var(--accent); animation: pulse 1s infinite; }
+  .scan-dot.done { background: var(--good); }
+  .scan-dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); background: #fafafa; }
+  td { padding: 13px 14px; border-bottom: 1px solid #f0f0ec; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafaf7; }
+
+  .name-cell a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); font-weight: 500; }
+  .name-cell a:hover { color: var(--accent); border-color: var(--accent); }
+  .name-cell .city-plain { font-weight: 500; }
+
+  .price-cell { font-family: var(--mono); font-size: 12px; white-space: nowrap; color: var(--text); }
+
+  .status-badge { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 3px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+  .status-sent    { background: #e8f0fb; color: #2563aa; border: 1px solid #c8d8f4; }
+  .status-replied { background: #e8f4e8; color: var(--good); border: 1px solid #c4e4c4; }
+  .status-active  { background: #fef9e7; color: var(--warn); border: 1px solid #f7e6a8; }
+  .status-dead    { background: #fdf0ef; color: var(--danger); border: 1px solid #f0cece; }
+
+  .days-cell { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .days-hot  { color: var(--danger); font-weight: 500; }
+  .days-warm { color: var(--warn); }
+  .days-ok   { color: var(--good); }
+  .days-cool { color: var(--muted); }
+
+  .notes-cell { font-size: 12px; color: var(--muted); max-width: 240px; cursor: pointer; line-height: 1.4; }
+  .notes-cell:hover { color: var(--text); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.visible { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 420px; max-width: 92vw; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+  .modal h3 { font-family: var(--mono); font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .modal label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; display: block; margin-bottom: 5px; margin-top: 12px; }
+  .modal label:first-of-type { margin-top: 0; }
+  .modal select, .modal textarea, .modal input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 10px; font-family: var(--sans); font-size: 13px; color: var(--text); outline: none;
+  }
+  .modal select:focus, .modal textarea:focus, .modal input:focus { border-color: var(--accent); background: #fff; }
+  .modal textarea { resize: vertical; min-height: 80px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LAUNDROMAT PIPELINE</h1>
+  <span id="lastScan">gmail not scanned yet</span>
+</header>
+
+<div class="summary-row">
+  <div><div class="stat-val" id="statTotal">0</div><div class="stat-label">Total</div></div>
+  <div><div class="stat-val" id="statSent">0</div><div class="stat-label">Awaiting Reply</div></div>
+  <div><div class="stat-val" id="statReplied">0</div><div class="stat-label">Replied</div></div>
+  <div><div class="stat-val" id="statActive">0</div><div class="stat-label">Active DD</div></div>
+  <div><div class="stat-val" id="statStale">0</div><div class="stat-label">Stale 5d+</div></div>
+</div>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="toggleAdd()">+ Add Listing</button>
+  <button class="btn" onclick="scanGmail()">↻ Scan Gmail</button>
+  <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="clearAll()">Clear All</button>
+</div>
+
+<div class="add-panel" id="addPanel">
+  <h3>New Listing</h3>
+  <div class="form-row">
+    <div class="field">
+      <label>City *</label>
+      <input type="text" id="fCity" placeholder="e.g. Oakland, CA" />
+    </div>
+    <div class="field">
+      <label>Asking Price</label>
+      <input type="text" id="fPrice" placeholder="e.g. 529k or 529000" />
+    </div>
+    <div class="field full">
+      <label>Listing URL</label>
+      <input type="text" id="fUrl" placeholder="https://..." />
+    </div>
+    <div class="field full">
+      <label>Notes</label>
+      <textarea id="fNotes" placeholder="Anything worth noting..."></textarea>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-primary" onclick="addListing()">Add to Tracker</button>
+    <button class="btn" onclick="toggleAdd()">Cancel</button>
+  </div>
+</div>
+
+<div class="scan-bar">
+  <div class="scan-dot" id="scanDot"></div>
+  <span id="scanStatus">Click "Scan Gmail" to check for broker replies</span>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>City</th>
+        <th>Asking</th>
+        <th>Status</th>
+        <th>Last Activity</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="empty-state" id="emptyState" style="display:none;">No listings yet.</div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>Edit Listing</h3>
+    <label>City</label>
+    <input type="text" id="mCity" />
+    <label>Asking Price</label>
+    <input type="text" id="mPrice" />
+    <label>Listing URL</label>
+    <input type="text" id="mUrl" />
+    <label>Status</label>
+    <select id="mStatus">
+      <option value="Outreach Sent">Outreach Sent</option>
+      <option value="Reply Received">Reply Received</option>
+      <option value="Active DD">Active DD</option>
+      <option value="Dead">Dead</option>
+    </select>
+    <label>Notes</label>
+    <textarea id="mNotes"></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
+const MODEL = 'claude-sonnet-4-20250514';
+const GMAIL_MCP = 'https://gmailmcp.googleapis.com/mcp/v1';
+const STORAGE_KEY = 'laundro_v3';
+
+// Pre-loaded data from Google Sheet
+const SEED_DATA = [
+  { city: 'Fresno, CA', asking_price: 910000, url: 'https://www.bizbuysell.com/business-opportunity/out-standing-location-with-large-volume/2458795/', notes: 'Sent direct email, no response on contact us form', status: 'Outreach Sent' },
+  { city: 'Alameda, CA', asking_price: 925000, url: 'https://www.bizben.com/business-for-sale/laundromat-for-sale-alameda-county-6882928', notes: 'Emailed only as requested. Went into contract for $750k', status: 'Dead' },
+  { city: 'San Jose, CA', asking_price: 650000, url: 'https://www.bizben.com/business-for-sale/established-laundromat-30-years-in-operation-1476236', notes: 'In LOI', status: 'Active DD' },
+  { city: 'San Francisco, CA', asking_price: 1650000, url: 'https://www.bizben.com/business-for-sale/unique-opportunity-to-acquire-premier-sf-laundromat-chain-8168688', notes: 'Sent email', status: 'Outreach Sent' },
+  { city: 'Nor Cal (exact TBD)', asking_price: 529000, url: 'https://www.bizben.com/business-for-sale/prime-location-coin-laudry-in-north-california-5384691', notes: 'Sent email, second email sent', status: 'Outreach Sent' },
+  { city: 'North San Diego, CA', asking_price: 1900000, url: 'https://www.bizquest.com/business-for-sale/passive-and-profitable-w-major-upside-north-county-san-diego/BW2476857/', notes: '', status: 'Outreach Sent' },
+  { city: 'Oakland, CA', asking_price: 550000, url: null, notes: '', status: 'Outreach Sent' },
+  { city: 'Sacramento, CA', asking_price: 1300000, url: 'https://us.businessesforsale.com/us/laundromat-with-semi-absentee-ownership-2.aspx', notes: 'Sent email to George', status: 'Outreach Sent' },
+];
+
+function initListings() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) return JSON.parse(stored);
+  // First load — seed from sheet data
+  return SEED_DATA.map((d, i) => ({
+    id: (Date.now() + i).toString(),
+    city: d.city,
+    asking_price: d.asking_price,
+    url: d.url,
+    notes: d.notes,
+    status: d.status,
+    outreach_date: '2026-04-27',
+    last_activity: '2026-04-27',
+    gmail_matched: false
+  }));
+}
+
+let listings = initListings();
+let editingId = null;
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(listings)); render(); }
+
+function parsePrice(raw) {
+  if (!raw) return null;
+  const s = raw.toString().toLowerCase().replace(/[$,\s]/g,'');
+  const mult = s.endsWith('m') ? 1000000 : s.endsWith('k') ? 1000 : 1;
+  const num = parseFloat(s.replace(/[mk]$/,''));
+  return isNaN(num) ? null : num * mult;
+}
+
+function fmtPrice(n) {
+  if (!n && n !== 0) return '<span style="color:var(--muted-light)">—</span>';
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + 'M';
+  if (n >= 1000) return '$' + (n/1000).toFixed(0) + 'k';
+  return '$' + n.toLocaleString();
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function daysSince(d) { if (!d) return null; return Math.floor((new Date() - new Date(d)) / 86400000); }
+
+function daysClass(days, status) {
+  if (status === 'Dead' || days === null) return 'days-cool';
+  if (days >= 7) return 'days-hot';
+  if (days >= 4) return 'days-warm';
+  if (days <= 1) return 'days-ok';
+  return 'days-cool';
+}
+
+function statusClass(s) {
+  return {'Outreach Sent':'status-sent','Reply Received':'status-replied','Active DD':'status-active','Dead':'status-dead'}[s]||'status-sent';
+}
+
+function toggleAdd() {
+  const p = document.getElementById('addPanel');
+  const showing = p.classList.toggle('visible');
+  if (showing) document.getElementById('fCity').focus();
+  else ['fCity','fPrice','fUrl','fNotes'].forEach(id => document.getElementById(id).value = '');
+}
+
+function addListing() {
+  const city = document.getElementById('fCity').value.trim();
+  if (!city) { alert('City is required.'); return; }
+  listings.push({
+    id: Date.now().toString(),
+    city,
+    asking_price: parsePrice(document.getElementById('fPrice').value),
+    url: document.getElementById('fUrl').value.trim() || null,
+    notes: document.getElementById('fNotes').value.trim() || '',
+    status: 'Outreach Sent',
+    outreach_date: today(),
+    last_activity: today(),
+    gmail_matched: false
+  });
+  save();
+  toggleAdd();
+}
+
+function openModal(id) {
+  const l = listings.find(x => x.id === id); if (!l) return;
+  editingId = id;
+  document.getElementById('mCity').value = l.city || '';
+  document.getElementById('mPrice').value = l.asking_price ? fmtPrice(l.asking_price).replace(/[^0-9.MKmk$]/g,'') : '';
+  document.getElementById('mUrl').value = l.url || '';
+  document.getElementById('mStatus').value = l.status || 'Outreach Sent';
+  document.getElementById('mNotes').value = l.notes || '';
+  document.getElementById('editModal').classList.add('visible');
+}
+
+function closeModal() { document.getElementById('editModal').classList.remove('visible'); editingId = null; }
+
+function saveModal() {
+  const l = listings.find(x => x.id === editingId); if (!l) return;
+  l.city = document.getElementById('mCity').value.trim();
+  l.asking_price = parsePrice(document.getElementById('mPrice').value);
+  l.url = document.getElementById('mUrl').value.trim() || null;
+  l.status = document.getElementById('mStatus').value;
+  l.notes = document.getElementById('mNotes').value.trim();
+  l.last_activity = today();
+  save(); closeModal();
+}
+
+function removeListing(id) {
+  if (!confirm('Remove this listing?')) return;
+  listings = listings.filter(l => l.id !== id); save();
+}
+
+function clearAll() {
+  if (!confirm('Clear all listings? This cannot be undone.')) return;
+  listings = []; save();
+}
+
+async function scanGmail() {
+  if (!listings.length) { alert('Add some listings first.'); return; }
+  const dot = document.getElementById('scanDot');
+  const statusEl = document.getElementById('scanStatus');
+  dot.className = 'scan-dot scanning';
+  statusEl.textContent = 'Scanning Gmail...';
+
+  const cities = [...new Set(listings.map(l => l.city?.split(',')[0]).filter(Boolean))].slice(0,12);
+
+  try {
+    const res = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 1000,
+        system: `Search Gmail for email threads related to laundromat or coin laundry business acquisition. Look for threads mentioning: laundromat, coin laundry, BizBuySell, BizBen, broker, ${cities.join(', ')}. For each relevant thread return a JSON array:
+[{"city_hint":string,"last_date":"YYYY-MM-DD","direction":"sent"|"received","subject":string}]
+city_hint should be the city name from the thread if identifiable, otherwise the broker name or business name. Return ONLY a valid JSON array. If nothing found return [].`,
+        messages: [{ role: 'user', content: 'Search my Gmail for laundromat broker email threads.' }],
+        mcp_servers: [{ type: 'url', url: GMAIL_MCP, name: 'gmail-mcp' }]
+      })
+    });
+
+    const data = await res.json();
+    const allText = (data.content || []).map(b => {
+      if (b.type === 'text') return b.text;
+      if (b.type === 'mcp_tool_result') return b.content?.[0]?.text || '';
+      return '';
+    }).join('');
+
+    let threads = [];
+    try {
+      const match = allText.match(/\[[\s\S]*?\]/);
+      if (match) threads = JSON.parse(match[0]);
+    } catch(e) {}
+
+    let matched = 0;
+    listings.forEach(listing => {
+      const cityBase = listing.city?.split(',')[0]?.toLowerCase();
+      threads.forEach(thread => {
+        const hint = (thread.city_hint || thread.subject || '').toLowerCase();
+        if (cityBase && hint.includes(cityBase)) {
+          const threadDate = new Date(thread.last_date || Date.now());
+          const existingDate = listing.last_activity ? new Date(listing.last_activity) : new Date(0);
+          if (threadDate > existingDate) {
+            listing.last_activity = thread.last_date || today();
+            listing.gmail_matched = true;
+            if (thread.direction === 'received' && listing.status === 'Outreach Sent') listing.status = 'Reply Received';
+            matched++;
+          }
+        }
+      });
+    });
+
+    save();
+    dot.className = 'scan-dot done';
+    const now = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    statusEl.textContent = matched ? `Updated ${matched} listing(s) from Gmail` : 'Scan complete — no new matches';
+    document.getElementById('lastScan').textContent = `last scanned ${now}`;
+  } catch(e) {
+    dot.className = 'scan-dot error';
+    statusEl.textContent = 'Gmail scan failed';
+    console.error(e);
+  }
+}
+
+function render() {
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('emptyState');
+  empty.style.display = listings.length ? 'none' : 'block';
+
+  const order = {'Active DD':0,'Reply Received':1,'Outreach Sent':2,'Dead':3};
+  const sorted = [...listings].sort((a,b) => {
+    const ao = order[a.status]??2, bo = order[b.status]??2;
+    if (ao !== bo) return ao - bo;
+    return (daysSince(a.last_activity)||0) - (daysSince(b.last_activity)||0);
+  });
+
+  tbody.innerHTML = '';
+  sorted.forEach(l => {
+    const days = daysSince(l.last_activity);
+    const daysText = days === null ? '—' : days === 0 ? 'today' : `${days}d ago`;
+    const cityHtml = l.url
+      ? `<a href="${l.url}" target="_blank">${l.city}</a>`
+      : `<span class="city-plain">${l.city}</span>`;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="name-cell">${cityHtml}</td>
+      <td class="price-cell">${fmtPrice(l.asking_price)}</td>
+      <td><span class="status-badge ${statusClass(l.status)}" onclick="openModal('${l.id}')" title="Click to change status">${l.status}</span></td>
+      <td class="days-cell ${daysClass(days, l.status)}">
+        ${daysText}
+        ${l.gmail_matched ? '<div style="font-size:9px;color:var(--muted);margin-top:1px;">via gmail</div>' : ''}
+      </td>
+      <td class="notes-cell" onclick="openModal('${l.id}')">${l.notes ? l.notes.substring(0,70)+(l.notes.length>70?'…':'') : '<span style="color:var(--muted-light)">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="openModal('${l.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px;" onclick="removeListing('${l.id}')">✕</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('statTotal').textContent = listings.length;
+  document.getElementById('statSent').textContent = listings.filter(l=>l.status==='Outreach Sent').length;
+  document.getElementById('statReplied').textContent = listings.filter(l=>l.status==='Reply Received').length;
+  document.getElementById('statActive').textContent = listings.filter(l=>l.status==='Active DD').length;
+  document.getElementById('statStale').textContent = listings.filter(l=>daysSince(l.last_activity)>=5&&l.status!=='Dead').length;
+}
+
+render();
+</script>
+</body>
+</html>
