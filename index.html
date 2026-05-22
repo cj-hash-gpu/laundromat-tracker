@@ -57,6 +57,11 @@
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); background: #fafafa; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--text); }
+  th[data-sort]::after { font-size: 9px; margin-left: 4px; color: var(--accent); }
+  th[data-sort="asc"]::after { content: '↑'; }
+  th[data-sort="desc"]::after { content: '↓'; }
   td { padding: 13px 14px; border-bottom: 1px solid #f0f0ec; vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #fafaf7; }
@@ -161,12 +166,12 @@
   <table>
     <thead>
       <tr>
-        <th>City</th>
-        <th>Asking</th>
-        <th>Broker</th>
-        <th>Status</th>
-        <th>Last Activity</th>
-        <th>Notes</th>
+        <th class="sortable" id="th-city" onclick="sortBy('city')">City</th>
+        <th class="sortable" id="th-asking" onclick="sortBy('asking')">Asking</th>
+        <th class="sortable" id="th-broker" onclick="sortBy('broker')">Broker</th>
+        <th class="sortable" id="th-status" onclick="sortBy('status')">Status</th>
+        <th class="sortable" id="th-activity" onclick="sortBy('activity')">Last Activity</th>
+        <th class="sortable" id="th-notes" onclick="sortBy('notes')">Notes</th>
         <th></th>
       </tr>
     </thead>
@@ -245,6 +250,18 @@ function initListings() {
 
 let listings = initListings();
 let editingId = null;
+let sortState = { col: null, dir: 'asc' };
+
+function sortBy(col) {
+  if (sortState.col === col) {
+    if (sortState.dir === 'asc') sortState.dir = 'desc';
+    else { sortState.col = null; sortState.dir = 'asc'; }
+  } else {
+    sortState.col = col;
+    sortState.dir = 'asc';
+  }
+  render();
+}
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(listings)); render(); }
 
@@ -423,10 +440,36 @@ function render() {
   empty.style.display = listings.length ? 'none' : 'block';
 
   const order = {'LOI Extended':0,'Pre-LOI Diligence':1,'CIM In Review':2,'NDA Signed':3,'Outreach Sent':4,'No Response':5,'Bad Deal':6};
-  const sorted = [...listings].sort((a,b) => {
-    const ao = order[a.status]??2, bo = order[b.status]??2;
-    if (ao !== bo) return ao - bo;
-    return (daysSince(a.last_activity)||0) - (daysSince(b.last_activity)||0);
+
+  let sorted;
+  if (sortState.col) {
+    sorted = [...listings].sort((a, b) => {
+      let av, bv;
+      switch (sortState.col) {
+        case 'city':     av = (a.city||'').toLowerCase(); bv = (b.city||'').toLowerCase(); break;
+        case 'asking':   av = a.asking_price ?? Infinity; bv = b.asking_price ?? Infinity; break;
+        case 'broker':   av = (a.broker_name||'￿').toLowerCase(); bv = (b.broker_name||'￿').toLowerCase(); break;
+        case 'status':   av = order[a.status]??99; bv = order[b.status]??99; break;
+        case 'activity': av = a.last_activity||''; bv = b.last_activity||''; break;
+        case 'notes':    av = (a.notes||'').toLowerCase(); bv = (b.notes||'').toLowerCase(); break;
+      }
+      const cmp = typeof av === 'number' ? av - bv : av < bv ? -1 : av > bv ? 1 : 0;
+      return sortState.dir === 'asc' ? cmp : -cmp;
+    });
+  } else {
+    sorted = [...listings].sort((a,b) => {
+      const ao = order[a.status]??2, bo = order[b.status]??2;
+      if (ao !== bo) return ao - bo;
+      return (daysSince(a.last_activity)||0) - (daysSince(b.last_activity)||0);
+    });
+  }
+
+  // update sort arrows on headers
+  ['city','asking','broker','status','activity','notes'].forEach(col => {
+    const th = document.getElementById('th-' + col);
+    if (!th) return;
+    if (sortState.col === col) th.setAttribute('data-sort', sortState.dir);
+    else th.removeAttribute('data-sort');
   });
 
   tbody.innerHTML = '';
