@@ -71,7 +71,12 @@
   .status-sent    { background: #e8f0fb; color: #2563aa; border: 1px solid #c8d8f4; }
   .status-replied { background: #e8f4e8; color: var(--good); border: 1px solid #c4e4c4; }
   .status-active  { background: #fef9e7; color: var(--warn); border: 1px solid #f7e6a8; }
-  .status-dead    { background: #fdf0ef; color: var(--danger); border: 1px solid #f0cece; }
+  .status-dead      { background: #fdf0ef; color: var(--danger); border: 1px solid #f0cece; }
+  .status-nda       { background: #f0eafb; color: #7c3aed; border: 1px solid #ddd0f7; }
+  .status-cim       { background: #fff7e6; color: #b45309; border: 1px solid #fde68a; }
+  .status-preloi    { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .status-loi       { background: #e8f4e8; color: var(--good); border: 1px solid #c4e4c4; }
+  .status-noresponse{ background: #f5f5f5; color: #999; border: 1px solid #ddd; }
 
   .days-cell { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
   .days-hot  { color: var(--danger); font-weight: 500; }
@@ -109,9 +114,9 @@
 
 <div class="summary-row">
   <div><div class="stat-val" id="statTotal">0</div><div class="stat-label">Total</div></div>
-  <div><div class="stat-val" id="statSent">0</div><div class="stat-label">Awaiting Reply</div></div>
-  <div><div class="stat-val" id="statReplied">0</div><div class="stat-label">Replied</div></div>
-  <div><div class="stat-val" id="statActive">0</div><div class="stat-label">Active DD</div></div>
+  <div><div class="stat-val" id="statSent">0</div><div class="stat-label">In Outreach</div></div>
+  <div><div class="stat-val" id="statReplied">0</div><div class="stat-label">CIM / Diligence</div></div>
+  <div><div class="stat-val" id="statActive">0</div><div class="stat-label">LOI Extended</div></div>
   <div><div class="stat-val" id="statStale">0</div><div class="stat-label">Stale 5d+</div></div>
 </div>
 
@@ -158,6 +163,7 @@
       <tr>
         <th>City</th>
         <th>Asking</th>
+        <th>Broker</th>
         <th>Status</th>
         <th>Last Activity</th>
         <th>Notes</th>
@@ -179,12 +185,19 @@
     <input type="text" id="mPrice" />
     <label>Listing URL</label>
     <input type="text" id="mUrl" />
+    <label>Broker Name</label>
+    <input type="text" id="mBroker" />
+    <label>Broker Email</label>
+    <input type="text" id="mBrokerEmail" />
     <label>Status</label>
     <select id="mStatus">
       <option value="Outreach Sent">Outreach Sent</option>
-      <option value="Reply Received">Reply Received</option>
-      <option value="Active DD">Active DD</option>
-      <option value="Dead">Dead</option>
+      <option value="NDA Signed">NDA Signed</option>
+      <option value="CIM In Review">CIM In Review</option>
+      <option value="Pre-LOI Diligence">Pre-LOI Diligence</option>
+      <option value="LOI Extended">LOI Extended</option>
+      <option value="No Response">No Response</option>
+      <option value="Bad Deal">Bad Deal</option>
     </select>
     <label>Notes</label>
     <textarea id="mNotes"></textarea>
@@ -203,14 +216,14 @@ const STORAGE_KEY = 'laundro_v3';
 
 // Pre-loaded data from Google Sheet
 const SEED_DATA = [
-  { city: 'Fresno, CA', asking_price: 910000, url: 'https://www.bizbuysell.com/business-opportunity/out-standing-location-with-large-volume/2458795/', notes: 'Sent direct email, no response on contact us form', status: 'Outreach Sent' },
-  { city: 'Alameda, CA', asking_price: 925000, url: 'https://www.bizben.com/business-for-sale/laundromat-for-sale-alameda-county-6882928', notes: 'Emailed only as requested. Went into contract for $750k', status: 'Dead' },
-  { city: 'San Jose, CA', asking_price: 650000, url: 'https://www.bizben.com/business-for-sale/established-laundromat-30-years-in-operation-1476236', notes: 'In LOI', status: 'Active DD' },
-  { city: 'San Francisco, CA', asking_price: 1650000, url: 'https://www.bizben.com/business-for-sale/unique-opportunity-to-acquire-premier-sf-laundromat-chain-8168688', notes: 'Sent email', status: 'Outreach Sent' },
-  { city: 'Nor Cal (exact TBD)', asking_price: 529000, url: 'https://www.bizben.com/business-for-sale/prime-location-coin-laudry-in-north-california-5384691', notes: 'Sent email, second email sent', status: 'Outreach Sent' },
-  { city: 'North San Diego, CA', asking_price: 1900000, url: 'https://www.bizquest.com/business-for-sale/passive-and-profitable-w-major-upside-north-county-san-diego/BW2476857/', notes: '', status: 'Outreach Sent' },
-  { city: 'Oakland, CA', asking_price: 550000, url: null, notes: '', status: 'Outreach Sent' },
-  { city: 'Sacramento, CA', asking_price: 1300000, url: 'https://us.businessesforsale.com/us/laundromat-with-semi-absentee-ownership-2.aspx', notes: 'Sent email to George', status: 'Outreach Sent' },
+  { city: 'Fresno, CA', broker_name: 'George', broker_email: 'bestlaundrybrokers@yahoo.com', asking_price: 910000, url: 'https://www.bizbuysell.com/business-opportunity/out-standing-location-with-large-volume/2458795/', notes: 'Sent direct email, no response on contact us form', status: 'Outreach Sent' },
+  { city: 'Alameda, CA', broker_name: 'Andy', broker_email: null, asking_price: 925000, url: 'https://www.bizben.com/business-for-sale/laundromat-for-sale-alameda-county-6882928', notes: 'Emailed only as requested. Went into contract for $750k', status: 'Bad Deal' },
+  { city: 'San Jose, CA', broker_name: 'Cailin Trinh', broker_email: null, asking_price: 650000, url: 'https://www.bizben.com/business-for-sale/established-laundromat-30-years-in-operation-1476236', notes: 'In LOI', status: 'LOI Extended' },
+  { city: 'San Francisco, CA', asking_price: 1650000, broker_name: 'Courtney', broker_email: null, url: 'https://www.bizben.com/business-for-sale/unique-opportunity-to-acquire-premier-sf-laundromat-chain-8168688', notes: 'Sent email', status: 'Outreach Sent' },
+  { city: 'Nor Cal (exact TBD)', broker_name: 'Fred Bryin', broker_email: 'fredib718@gmail.com', asking_price: 529000, url: 'https://www.bizben.com/business-for-sale/prime-location-coin-laudry-in-north-california-5384691', notes: 'Sent email, second email sent', status: 'Outreach Sent' },
+  { city: 'North San Diego, CA', broker_name: null, broker_email: null, asking_price: 1900000, url: 'https://www.bizquest.com/business-for-sale/passive-and-profitable-w-major-upside-north-county-san-diego/BW2476857/', notes: '', status: 'Outreach Sent' },
+  { city: 'Oakland, CA', broker_name: 'Jeff Ota', broker_email: 'jeff@bestbusinessbrokersusa.com', asking_price: 550000, url: null, notes: '', status: 'Outreach Sent' },
+  { city: 'Sacramento, CA', broker_name: 'George', broker_email: null, asking_price: 1300000, url: 'https://us.businessesforsale.com/us/laundromat-with-semi-absentee-ownership-2.aspx', notes: 'Sent email to George', status: 'Outreach Sent' },
 ];
 
 function initListings() {
@@ -262,14 +275,22 @@ function daysClass(days, status) {
 }
 
 function statusClass(s) {
-  return {'Outreach Sent':'status-sent','Reply Received':'status-replied','Active DD':'status-active','Dead':'status-dead'}[s]||'status-sent';
+  return {
+    'Outreach Sent':   'status-sent',
+    'NDA Signed':      'status-nda',
+    'CIM In Review':   'status-cim',
+    'Pre-LOI Diligence':'status-preloi',
+    'LOI Extended':    'status-loi',
+    'No Response':     'status-noresponse',
+    'Bad Deal':        'status-dead'
+  }[s] || 'status-sent';
 }
 
 function toggleAdd() {
   const p = document.getElementById('addPanel');
   const showing = p.classList.toggle('visible');
   if (showing) document.getElementById('fCity').focus();
-  else ['fCity','fPrice','fUrl','fNotes'].forEach(id => document.getElementById(id).value = '');
+  else ['fCity','fPrice','fBroker','fBrokerEmail','fUrl','fNotes'].forEach(id => document.getElementById(id).value = '');
 }
 
 function addListing() {
@@ -280,6 +301,8 @@ function addListing() {
     city,
     asking_price: parsePrice(document.getElementById('fPrice').value),
     url: document.getElementById('fUrl').value.trim() || null,
+    broker_name: document.getElementById('fBroker').value.trim() || null,
+    broker_email: document.getElementById('fBrokerEmail').value.trim() || null,
     notes: document.getElementById('fNotes').value.trim() || '',
     status: 'Outreach Sent',
     outreach_date: today(),
@@ -296,6 +319,8 @@ function openModal(id) {
   document.getElementById('mCity').value = l.city || '';
   document.getElementById('mPrice').value = l.asking_price ? fmtPrice(l.asking_price).replace(/[^0-9.MKmk$]/g,'') : '';
   document.getElementById('mUrl').value = l.url || '';
+  document.getElementById('mBroker').value = l.broker_name || '';
+  document.getElementById('mBrokerEmail').value = l.broker_email || '';
   document.getElementById('mStatus').value = l.status || 'Outreach Sent';
   document.getElementById('mNotes').value = l.notes || '';
   document.getElementById('editModal').classList.add('visible');
@@ -308,6 +333,8 @@ function saveModal() {
   l.city = document.getElementById('mCity').value.trim();
   l.asking_price = parsePrice(document.getElementById('mPrice').value);
   l.url = document.getElementById('mUrl').value.trim() || null;
+  l.broker_name = document.getElementById('mBroker').value.trim() || null;
+  l.broker_email = document.getElementById('mBrokerEmail').value.trim() || null;
   l.status = document.getElementById('mStatus').value;
   l.notes = document.getElementById('mNotes').value.trim();
   l.last_activity = today();
@@ -371,7 +398,7 @@ city_hint should be the city name from the thread if identifiable, otherwise the
           if (threadDate > existingDate) {
             listing.last_activity = thread.last_date || today();
             listing.gmail_matched = true;
-            if (thread.direction === 'received' && listing.status === 'Outreach Sent') listing.status = 'Reply Received';
+            if (thread.direction === 'received' && listing.status === 'Outreach Sent') listing.status = 'NDA Signed';
             matched++;
           }
         }
@@ -395,7 +422,7 @@ function render() {
   const empty = document.getElementById('emptyState');
   empty.style.display = listings.length ? 'none' : 'block';
 
-  const order = {'Active DD':0,'Reply Received':1,'Outreach Sent':2,'Dead':3};
+  const order = {'LOI Extended':0,'Pre-LOI Diligence':1,'CIM In Review':2,'NDA Signed':3,'Outreach Sent':4,'No Response':5,'Bad Deal':6};
   const sorted = [...listings].sort((a,b) => {
     const ao = order[a.status]??2, bo = order[b.status]??2;
     if (ao !== bo) return ao - bo;
@@ -414,6 +441,7 @@ function render() {
     tr.innerHTML = `
       <td class="name-cell">${cityHtml}</td>
       <td class="price-cell">${fmtPrice(l.asking_price)}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${l.broker_name || '<span style="color:var(--muted-light)">—</span>'}</td>
       <td><span class="status-badge ${statusClass(l.status)}" onclick="openModal('${l.id}')" title="Click to change status">${l.status}</span></td>
       <td class="days-cell ${daysClass(days, l.status)}">
         ${daysText}
@@ -428,10 +456,10 @@ function render() {
   });
 
   document.getElementById('statTotal').textContent = listings.length;
-  document.getElementById('statSent').textContent = listings.filter(l=>l.status==='Outreach Sent').length;
-  document.getElementById('statReplied').textContent = listings.filter(l=>l.status==='Reply Received').length;
-  document.getElementById('statActive').textContent = listings.filter(l=>l.status==='Active DD').length;
-  document.getElementById('statStale').textContent = listings.filter(l=>daysSince(l.last_activity)>=5&&l.status!=='Dead').length;
+  document.getElementById('statSent').textContent = listings.filter(l=>['Outreach Sent','NDA Signed'].includes(l.status)).length;
+  document.getElementById('statReplied').textContent = listings.filter(l=>['CIM In Review','Pre-LOI Diligence'].includes(l.status)).length;
+  document.getElementById('statActive').textContent = listings.filter(l=>l.status==='LOI Extended').length;
+  document.getElementById('statStale').textContent = listings.filter(l=>daysSince(l.last_activity)>=5&&!['Bad Deal','No Response'].includes(l.status)).length;
 }
 
 render();
