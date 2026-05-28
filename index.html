@@ -307,7 +307,7 @@ function toggleAdd() {
   const p = document.getElementById('addPanel');
   const showing = p.classList.toggle('visible');
   if (showing) document.getElementById('fCity').focus();
-  else ['fCity','fPrice','fBroker','fBrokerEmail','fUrl','fNotes'].forEach(id => document.getElementById(id).value = '');
+  else ['fCity','fPrice','fUrl','fNotes'].forEach(id => document.getElementById(id).value = '');
 }
 
 function addListing() {
@@ -318,8 +318,8 @@ function addListing() {
     city,
     asking_price: parsePrice(document.getElementById('fPrice').value),
     url: document.getElementById('fUrl').value.trim() || null,
-    broker_name: document.getElementById('fBroker').value.trim() || null,
-    broker_email: document.getElementById('fBrokerEmail').value.trim() || null,
+    broker_name: null,
+    broker_email: null,
     notes: document.getElementById('fNotes').value.trim() || '',
     status: 'Outreach Sent',
     outreach_date: today(),
